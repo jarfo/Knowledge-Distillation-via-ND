@@ -1,0 +1,31 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "train_cifar_dkd",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/CIFAR/train_cifar_dkd.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "cwd": "${workspaceFolder}/CIFAR",
+            "args": [
+                "--model_name=shufflev1_cifar",
+                "--teacher=resnet32x4_cifar",
+                "--teacher_weights=../ckpt/teacher/cifar_teachers/resnet32x4_vanilla/ckpt_epoch_240.pth",
+                "--dataset=cifar100",
+                "--epoch=240",
+                "--batch_size=64",
+                "--lr=0.02",
+                "--cls_loss_factor=1.0",
+                "--dkd_alpha=0.5",
+                "--dkd_beta=8.0",
+                "--nd_loss_factor=4.0",
+                "--save_dir=run/CIFAR100/DKD++/res32x4-sv1"
+            ]
+        }
+    ]
+}

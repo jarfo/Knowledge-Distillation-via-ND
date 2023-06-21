@@ -1,0 +1,6 @@
+__pycache__/
+run/
+ckpt/
+*.out
+*.tar
+data/

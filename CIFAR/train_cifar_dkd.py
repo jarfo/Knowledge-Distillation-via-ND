@@ -1,5 +1,4 @@
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = '2,3'
 import torch
 import torchvision
 from torch import nn
@@ -36,7 +35,7 @@ def train(model, teacher, T_EMB, train_dataloader, optimizer, criterion, dkd_los
     model.train()
     teacher.eval()
     step_per_epoch = len(train_dataloader)
-    
+
     for step, (images, labels) in enumerate(train_dataloader):
         start = time.time()
         images, labels = images.cuda(), labels.cuda()
@@ -46,7 +45,7 @@ def train(model, teacher, T_EMB, train_dataloader, optimizer, criterion, dkd_los
 
         with torch.no_grad():
             t_emb, t_logits = teacher(images, embed=True)
-        
+
         # cls loss
         cls_loss = criterion(s_logits, labels) * args.cls_loss_factor
         # KD loss
@@ -110,7 +109,7 @@ def epoch_loop(model, teacher, train_set, test_set, args):
     # data loaders
     train_loader = DataLoader(train_set, batch_size=args.batch_size, shuffle=True, pin_memory=True, num_workers=args.workers)
     test_loader = DataLoader(test_set, batch_size=args.batch_size, shuffle=False, pin_memory=True, num_workers=args.workers)
-    
+
     # model
     device = "cuda" if torch.cuda.is_available() else "cpu"
     model = nn.DataParallel(model, device_ids=args.gpus)
@@ -124,7 +123,7 @@ def epoch_loop(model, teacher, train_set, test_set, args):
     nd_loss = DirectNormLoss(num_class=100, nd_loss_factor=args.nd_loss_factor).to(device)
     # optimizer
     optimizer = torch.optim.SGD(params=model.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay, nesterov=True)
-    
+
     # 权重
     save_dir = Path(args.save_dir)
     weights = save_dir / 'weights'
@@ -145,7 +144,7 @@ def epoch_loop(model, teacher, train_set, test_set, args):
     logdir = save_dir / 'logs'
     logdir.mkdir(parents=True, exist_ok=True)
     summary_writer = SummaryWriter(logdir, flush_secs=120)
-    
+
     # resume
     if args.resume:
         checkpoint = torch.load(args.resume)
@@ -179,14 +178,14 @@ def epoch_loop(model, teacher, train_set, test_set, args):
                                                                                  train_dataloader=train_loader,
                                                                                  optimizer=optimizer,
                                                                                  criterion=criterion,
-                                                                                 kd_loss=dkd_loss,
+                                                                                 dkd_loss=dkd_loss,
                                                                                  nd_loss=nd_loss,
                                                                                  args=args,
                                                                                  epoch=epoch)
-        test_epoch_loss, test_error = test(model=model, 
+        test_epoch_loss, test_error = test(model=model,
                                            test_dataloader=test_loader,
                                            criterion=criterion)
-        
+
         s = "Train Loss: {:.3f}, Train Acc: {:.3f}, Test Loss: {:.3f}, Test Acc: {:.3f}, lr: {:.5f}".format(
             train_epoch_loss, 1-train_error, test_epoch_loss, 1-test_error, optimizer.param_groups[0]['lr'])
         logger.info(colorstr('green', s))
@@ -210,7 +209,7 @@ def epoch_loop(model, teacher, train_set, test_set, args):
                 'test_acc': test_acc,
                 'test_loss': test_loss,
             }
-        
+
         last_path = last / 'epoch_{}_loss_{:.3f}_acc_{:.3f}'.format(
             epoch + 1, test_epoch_loss, 1-test_error)
         best_path = best / 'epoch_{}_acc_{:.3f}'.format(
@@ -242,8 +241,8 @@ def epoch_loop(model, teacher, train_set, test_set, args):
 
 
 if __name__ == "__main__":
-    model_names = sorted(name for name in Models.__dict__ 
-                         if name.islower() and not name.startswith("__") 
+    model_names = sorted(name for name in Models.__dict__
+                         if name.islower() and not name.startswith("__")
                          and callable(Models.__dict__[name]))
 
     parser = argparse.ArgumentParser(description='PyTorch Cifar Training')
@@ -289,7 +288,7 @@ if __name__ == "__main__":
     args.batch_size = args.batch_size * len(args.gpus)
 
     logger.info(colorstr('green', "Distribute train, gpus:{}, total batch size:{}, epoch:{}".format(args.gpus, args.batch_size, args.epochs)))
-    
+
     train_set, test_set, num_class = CIFAR(name=args.dataset)
     model = Models.__dict__[args.model_name](num_class=num_class)
     if args.model_name in ['wrn40_1_cifar', 'mobilenetv2', 'shufflev1_cifar', 'shufflev2_cifar']:
@@ -303,16 +302,16 @@ if __name__ == "__main__":
 
         for param in teacher.parameters():
             param.requires_grad = False
-    
+
     # res56    ./ckpt/teacher/resnet56/center_emb_train.json
     # res32x4  ./ckpt/teacher/resnet32x4/center_emb_train.json
     # wrn40_2  ./ckpt/teacher/wrn_40_2/center_emb_train.json
     # res50    ./ckpt/teacher/resnet50/center_emb_train.json
     # class-mean
-    with open("./ckpt/teacher/resnet56/center_emb_train.json", 'r') as f:
+    with open(f"./ckpt/teacher/{args.teacher.split('_')[0]}/center_emb_train.json", 'r') as f:
         T_EMB = json.load(f)
     f.close()
-    
+
     logger.info(colorstr('green', 'Use ' + args.teacher + ' Training ' + args.model_name + ' ...'))
     # Train the model
     epoch_loop(model=model, teacher=teacher, train_set=train_set, test_set=test_set, args=args)
